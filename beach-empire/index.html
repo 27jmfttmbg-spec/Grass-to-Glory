@@ -1,0 +1,107 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#2b2f6b"><title>Beach Empire</title><style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#fff;background:#2b2f6b;overscroll-behavior:none}
+body{background:linear-gradient(#2b2f6b,#a4478f 38%,#f2757a 70%,#ffb27a);background-attachment:fixed;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px calc(env(safe-area-inset-bottom,0px) + 16px);overflow-y:auto;user-select:none;-webkit-user-select:none}
+#top{text-align:center;padding:6px 0}
+#cash{font-size:40px;font-weight:900;letter-spacing:-1px;font-variant-numeric:tabular-nums;text-shadow:0 2px 12px #0006}
+#rate{font-size:14px;color:#7ff2d8;font-weight:700}
+#tapwrap{position:relative;display:flex;justify-content:center;padding:14px 0 18px}
+#tap{width:150px;height:150px;border-radius:50%;border:4px solid #ffe3a3;background:radial-gradient(circle at 35% 30%,#ffd37a,#ff7aa8);font-size:72px;line-height:1;box-shadow:0 10px 30px #0006,inset 0 -8px 18px #0003;touch-action:manipulation;transition:transform .07s}
+#tap:active,#tap.pop{transform:scale(.92)}
+#taphint{text-align:center;font-size:12px;opacity:.85;margin-top:-6px;margin-bottom:12px}
+.float{position:fixed;pointer-events:none;font-weight:900;font-size:22px;color:#fff6c8;text-shadow:0 2px 8px #000a;animation:fl .9s ease-out forwards;z-index:5}
+@keyframes fl{to{transform:translateY(-90px);opacity:0}}
+.row{display:flex;align-items:center;gap:10px;background:#1b1f4bb8;border:1px solid #ffffff30;border-radius:16px;padding:10px 12px;margin-bottom:9px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.row.locked{opacity:.45}
+.ico{font-size:32px;width:42px;text-align:center}
+.info{flex:1;min-width:0}.info b{font-size:15px}.info small{display:block;font-size:11px;color:#ffe3c8;margin-top:3px}
+.buy{border:0;border-radius:12px;padding:11px 10px;min-width:92px;font-weight:900;font-size:13px;color:#2a1c3a;background:linear-gradient(135deg,#ffe9a8,#ffb36b);font-family:inherit}
+.buy:disabled{background:#ffffff30;color:#ffffffa0}
+.buy:not(:disabled):active{transform:scale(.95)}
+h3{font-size:12px;letter-spacing:1px;margin:16px 4px 8px;color:#ffe3a3}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translateX(-50%);background:#1b1f4bf0;border:1px solid #ffffff55;border-radius:14px;padding:10px 14px;font-size:13px;display:none;z-index:9;text-align:center;max-width:90vw}
+#reset{display:block;margin:20px auto 0;background:none;border:0;color:#ffffff80;font-size:11px;font-family:inherit}
+</style></head><body>
+<div id="toast"></div>
+<div id="top"><div id="cash">$0</div><div id="rate">+$0 / sec</div></div>
+<div id="tapwrap"><button id="tap" aria-label="Sell a drink">🍹</button></div>
+<div id="taphint"></div>
+<h3>UPGRADES</h3><div id="ups"></div>
+<h3>YOUR BUSINESSES</h3><div id="list"></div>
+<button id="reset">Reset game</button>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var KEY='beach-empire-v1',MAX_OFFLINE=4*3600;
+var biz=[
+{n:'Drink Cart',i:'🍹',c:15,r:.5},
+{n:'Beach Café',i:'☕',c:150,r:4},
+{n:'Surf Shop',i:'🏄',c:1500,r:30},
+{n:'Beach Hotel',i:'🏨',c:20000,r:220},
+{n:'Yacht Club',i:'⛵',c:300000,r:1800},
+{n:'Skyscraper',i:'🏙️',c:5e6,r:15000},
+{n:'Private Island',i:'🏝️',c:1e8,r:140000}];
+var MILES=[10,25,50,100,200];
+var save={cash:0,own:biz.map(function(){return 0}),tap:0,last:Date.now()};
+try{var raw=JSON.parse(localStorage.getItem(KEY));if(raw&&typeof raw==='object'){
+ if(isFinite(raw.cash)&&raw.cash>=0)save.cash=raw.cash;
+ if(Array.isArray(raw.own))save.own=biz.map(function(_,i){var n=raw.own[i];return Number.isInteger(n)&&n>=0?n:0});
+ if(Number.isInteger(raw.tap)&&raw.tap>=0)save.tap=raw.tap;
+ if(isFinite(raw.last))save.last=Math.min(Date.now(),raw.last)}}catch(e){}
+function fmt(n){n=Math.max(0,n);if(n<1000)return '$'+(n<10?n.toFixed(2).replace(/\.?0+$/,''):Math.floor(n));
+ var u=['K','M','B','T','Qa'],k=-1;while(n>=1000&&k<u.length-1){n/=1000;k++}return '$'+n.toFixed(n<10?2:n<100?1:0)+u[k]}
+function mult(i){var m=1;for(var k=0;k<MILES.length;k++)if(save.own[i]>=MILES[k])m*=2;return m}
+function each(i){return biz[i].r*mult(i)}
+function perSec(){var s=0;for(var i=0;i<biz.length;i++)s+=save.own[i]*each(i);return s}
+function price(i){return Math.ceil(biz[i].c*Math.pow(1.15,save.own[i]))}
+function tapVal(){return (1+save.tap)*(1+perSec()*.05)}
+function upPrice(){return Math.ceil(50*Math.pow(3.2,save.tap))}
+function nextMile(i){for(var k=0;k<MILES.length;k++)if(save.own[i]<MILES[k])return MILES[k];return null}
+function buzz(ms){try{if(navigator.vibrate)navigator.vibrate(ms)}catch(e){}}
+var tt;function toast(s){var t=$('toast');t.textContent=s;t.style.display='block';clearTimeout(tt);tt=setTimeout(function(){t.style.display='none'},3200)}
+function persist(){save.last=Date.now();try{localStorage.setItem(KEY,JSON.stringify(save))}catch(e){}}
+function floatText(x,y,s){var d=document.createElement('div');d.className='float';d.textContent=s;d.style.left=(x-24)+'px';d.style.top=(y-30)+'px';document.body.appendChild(d);setTimeout(function(){d.remove()},900)}
+// Build UI once; update text in tick so taps never get swallowed by re-rendering.
+var ups=$('ups'),list=$('list'),rows=[];
+var upRow=document.createElement('div');upRow.className='row';
+upRow.innerHTML='<div class="ico">🍋</div><div class="info"><b>Better Blender</b><small id="upInfo"></small></div><button class="buy" id="upBuy"></button>';
+ups.appendChild(upRow);
+biz.forEach(function(b,i){var r=document.createElement('div');r.className='row';
+ r.innerHTML='<div class="ico"></div><div class="info"><b></b><small></small></div><button class="buy"></button>';
+ list.appendChild(r);
+ r.querySelector('.buy').onclick=function(){var p=price(i);if(save.cash<p)return;save.cash-=p;save.own[i]++;buzz(15);
+  var m=MILES.indexOf(save.own[i]);if(m>=0)toast(b.i+' '+b.n+' milestone! Income ×2');persist();update()};
+ rows.push(r)});
+$('upBuy').onclick=function(){var p=upPrice();if(save.cash<p)return;save.cash-=p;save.tap++;buzz(15);persist();update()};
+function update(){
+ $('cash').textContent=fmt(save.cash);$('rate').textContent='+'+fmt(perSec())+' / sec';
+ $('taphint').textContent='Tap = '+fmt(tapVal());
+ $('upInfo').textContent='Level '+save.tap+' · tapping earns more';
+ var ub=$('upBuy');ub.textContent=fmt(upPrice());ub.disabled=save.cash<upPrice();
+ var unlocked=true;
+ biz.forEach(function(b,i){var r=rows[i],own=save.own[i];
+  var show=i===0||save.own[i-1]>0||own>0||save.cash>=b.c*.5;
+  r.style.display=show||i===0?'flex':'none';
+  r.classList.toggle('locked',!own&&save.cash<b.c);
+  r.querySelector('.ico').textContent=b.i;r.querySelector('b').textContent=b.n+(own?' · '+own:'');
+  var nm=nextMile(i);
+  r.querySelector('small').textContent='+'+fmt(each(i))+'/sec each'+(nm?' · ×2 at '+nm:' · maxed');
+  var btn=r.querySelector('.buy');btn.textContent=fmt(price(i));btn.disabled=save.cash<price(i)})
+}
+var tap=$('tap');
+tap.addEventListener('pointerdown',function(e){var v=tapVal();save.cash+=v;buzz(8);
+ tap.classList.add('pop');setTimeout(function(){tap.classList.remove('pop')},70);
+ floatText(e.clientX,e.clientY,'+'+fmt(v));update()});
+// Offline earnings
+var offline=Math.min(MAX_OFFLINE,Math.max(0,(Date.now()-save.last)/1000)),gain=perSec()*offline;
+if(gain>0&&offline>20){save.cash+=gain;toast('Welcome back! You earned '+fmt(gain)+' while away')}
+var last=Date.now();
+setInterval(function(){var now=Date.now(),dt=Math.min(5,Math.max(0,(now-last)/1000));last=now;save.cash+=perSec()*dt;update()},100);
+setInterval(persist,2000);
+addEventListener('pagehide',persist);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')persist()});
+var armed=false;$('reset').onclick=function(){if(!armed){armed=true;this.textContent='Tap again to erase all progress';var b=this;setTimeout(function(){armed=false;b.textContent='Reset game'},3000);return}
+ try{localStorage.removeItem(KEY)}catch(e){}location.reload()};
+update();
+})();
+</script></body></html>
